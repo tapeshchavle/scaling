@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # Azure Deployment Script
-RESOURCE_GROUP="scaling-food-rg"
-LOCATION="eastus"
+RESOURCE_GROUP="scaling-food-rg-in"
+LOCATION="centralindia"
 ENVIRONMENT="staging"
 
 echo "Creating Resource Group: $RESOURCE_GROUP in $LOCATION"
@@ -12,7 +12,7 @@ az group create --name "$RESOURCE_GROUP" --location "$LOCATION"
 echo "Deploying Bicep Templates..."
 az deployment group create \
   --resource-group "$RESOURCE_GROUP" \
-  --template-file ../bicep/main.bicep \
+  --template-file azure/bicep/main.bicep \
   --parameters environment="$ENVIRONMENT" \
   --query 'properties.outputs' \
   --output json > deployment-outputs.json

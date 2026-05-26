@@ -16,8 +16,8 @@ on:
 
 env:
   ACR_NAME: scalingfoodacr
-  RESOURCE_GROUP: scaling-food-rg
-  LOCATION: eastus
+  RESOURCE_GROUP: scaling-food-rg-in
+  LOCATION: centralindia
   ENVIRONMENT_NAME: scaling-food-env
 
 permissions:
