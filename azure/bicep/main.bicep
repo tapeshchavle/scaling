@@ -50,14 +50,7 @@ module mysql 'mysql.bicep' = {
   }
 }
 
-// CDN (Azure Front Door)
-module cdn 'cdn.bicep' = {
-  name: 'cdn'
-  params: {
-    environment: environment
-    containerAppsFqdn: containerApps.outputs.foodCoreFqdn
-  }
-}
+
 
 output acrLoginServer string = acr.properties.loginServer
 output foodCoreUrl string = containerApps.outputs.foodCoreFqdn
