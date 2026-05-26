@@ -6,11 +6,6 @@ param acrLoginServer string
 resource managedEnvironment 'Microsoft.App/managedEnvironments@2023-05-01' = {
   name: 'env-${environment}'
   location: location
-  properties: {
-    appLogsConfiguration: {
-      destination: 'log-analytics'
-    }
-  }
 }
 
 // User Assigned Identity for ACR pull
