@@ -2,10 +2,31 @@ param location string = resourceGroup().location
 param environment string
 param acrLoginServer string
 
+// Log Analytics Workspace for Container Apps
+resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
+  name: 'logs-${environment}-${uniqueString(resourceGroup().id)}'
+  location: location
+  properties: {
+    sku: {
+      name: 'PerGB2018'
+    }
+    retentionInDays: 30
+  }
+}
+
 // Container Apps Environment
 resource managedEnvironment 'Microsoft.App/managedEnvironments@2023-05-01' = {
   name: 'env-${environment}'
   location: location
+  properties: {
+    appLogsConfiguration: {
+      destination: 'log-analytics'
+      logAnalyticsConfiguration: {
+        customerId: logAnalytics.properties.customerId
+        sharedKey: logAnalytics.listKeys().primarySharedKey
+      }
+    }
+  }
 }
 
 // User Assigned Identity for ACR pull
