@@ -27,7 +27,6 @@ buildNumber.properties
 out/
 
 # === IDE - VSCode ===
-.vscode/
 
 # === IDE - Eclipse ===
 .classpath
@@ -56,3 +55,7 @@ Thumbs.db
 
 # === Node (just in case) ===
 node_modules/
+branch_structure.json
+temp_auto_push.bat
+temp_interactive_push.bat
+.gitignore
