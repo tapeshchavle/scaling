@@ -10,6 +10,10 @@ env:
   JAVA_VERSION: '21'
   ACR_NAME: scalingfoodacr
 
+permissions:
+  contents: read
+  security-events: write
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -73,8 +77,14 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: '${{ matrix.service }}:scan'
-          format: 'table'
-          exit-code: '1'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
