@@ -15,9 +15,9 @@ on:
           - production
 
 env:
-  ACR_NAME: scalingfoodacr
-  RESOURCE_GROUP: scaling-food-rg-ind
-  LOCATION: centralindia
+  ACR_NAME: scalingfoodacr202605
+  RESOURCE_GROUP: scaling-food-rg-uae2
+  LOCATION: uaenorth
   ENVIRONMENT_NAME: scaling-food-env
 
 permissions:

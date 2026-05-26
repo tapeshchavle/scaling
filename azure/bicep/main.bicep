@@ -8,7 +8,7 @@ param location string = resourceGroup().location
 param environment string = 'staging'
 
 @description('ACR name')
-param acrName string = 'scalingfoodacr'
+param acrName string = 'scalingfoodacr202605'
 
 // Container Registry
 resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
