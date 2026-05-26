@@ -1,0 +1,65 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: food-core
+
+  threads:
+    virtual:
+      enabled: true
+
+  # Default datasource (overridden by DataSourceConfig for routing)
+  datasource:
+    master:
+      jdbc-url: jdbc:mysql://${MYSQL_MASTER_HOST:localhost}:${MYSQL_MASTER_PORT:3306}/${MYSQL_DATABASE:food_db}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      username: ${MYSQL_USER:food_user}
+      password: ${MYSQL_PASSWORD:changeme}
+      driver-class-name: com.mysql.cj.jdbc.Driver
+      hikari:
+        maximum-pool-size: 20
+        minimum-idle: 5
+        connection-timeout: 30000
+        max-lifetime: 1800000
+        pool-name: master-pool
+    slave:
+      jdbc-url: jdbc:mysql://${MYSQL_SLAVE_HOST:localhost}:${MYSQL_SLAVE_PORT:3307}/${MYSQL_DATABASE:food_db}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      username: ${MYSQL_USER:food_user}
+      password: ${MYSQL_PASSWORD:changeme}
+      driver-class-name: com.mysql.cj.jdbc.Driver
+      hikari:
+        maximum-pool-size: 30
+        minimum-idle: 10
+        connection-timeout: 30000
+        max-lifetime: 1800000
+        pool-name: slave-pool
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+    open-in-view: false
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      lettuce:
+        pool:
+          enabled: true
+          max-active: 20
+          max-idle: 10
+          min-idle: 5
+          max-wait: 2000ms
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized

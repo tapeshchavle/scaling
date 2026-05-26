@@ -1,0 +1,135 @@
+name: CD - Deploy to Azure
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  ACR_NAME: scalingfoodacr
+  RESOURCE_GROUP: scaling-food-rg
+  LOCATION: eastus
+  ENVIRONMENT_NAME: scaling-food-env
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [food-core, notification-service]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Log in to ACR
+        run: az acr login --name ${{ env.ACR_NAME }}
+
+      - name: Build and push to ACR
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: services/${{ matrix.service }}/Dockerfile
+          push: true
+          tags: |
+            ${{ env.ACR_NAME }}.azurecr.io/${{ matrix.service }}:${{ github.sha }}
+            ${{ env.ACR_NAME }}.azurecr.io/${{ matrix.service }}:latest
+
+  deploy-staging:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy food-core to Container Apps
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          acrName: ${{ env.ACR_NAME }}
+          containerAppName: food-core
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          imageToDeploy: ${{ env.ACR_NAME }}.azurecr.io/food-core:${{ github.sha }}
+
+      - name: Deploy notification-service to Container Apps
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          acrName: ${{ env.ACR_NAME }}
+          containerAppName: notification-service
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          imageToDeploy: ${{ env.ACR_NAME }}.azurecr.io/notification-service:${{ github.sha }}
+
+      - name: Health check - Food Core
+        run: |
+          FQDN=$(az containerapp show --name food-core --resource-group ${{ env.RESOURCE_GROUP }} --query 'properties.configuration.ingress.fqdn' -o tsv)
+          for i in {1..10}; do
+            STATUS=$(curl -s -o /dev/null -w '%{http_code}' "https://$FQDN/api/v1/food/health" || true)
+            if [ "$STATUS" = "200" ]; then echo "Health check passed!"; exit 0; fi
+            echo "Attempt $i: Status $STATUS, retrying..."
+            sleep 10
+          done
+          echo "Health check failed!"; exit 1
+
+      - name: Health check - Notification Service
+        run: |
+          FQDN=$(az containerapp show --name notification-service --resource-group ${{ env.RESOURCE_GROUP }} --query 'properties.configuration.ingress.fqdn' -o tsv)
+          for i in {1..10}; do
+            STATUS=$(curl -s -o /dev/null -w '%{http_code}' "https://$FQDN/api/v1/notifications/health" || true)
+            if [ "$STATUS" = "200" ]; then echo "Health check passed!"; exit 0; fi
+            echo "Attempt $i: Status $STATUS, retrying..."
+            sleep 10
+          done
+          echo "Health check failed!"; exit 1
+
+  deploy-production:
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    environment: production
+    if: github.event.inputs.environment == 'production' || github.ref == 'refs/heads/main'
+    steps:
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Promote food-core to production traffic
+        run: |
+          az containerapp ingress traffic set \
+            --name food-core \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --revision-weight latest=100
+
+      - name: Promote notification-service to production traffic
+        run: |
+          az containerapp ingress traffic set \
+            --name notification-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --revision-weight latest=100

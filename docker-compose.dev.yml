@@ -1,0 +1,39 @@
+# Development overrides
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+version: '3.9'
+
+services:
+  food-core:
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 768M
+          cpus: '1.0'
+    ports:
+      - "8081:8081"
+      - "5005:5005"  # Debug port
+    environment:
+      - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
+
+  notification-service:
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 768M
+          cpus: '1.0'
+    ports:
+      - "8082:8082"
+      - "5006:5005"  # Debug port
+    environment:
+      - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
+
+  mysql-master:
+    ports:
+      - "3306:3306"
+
+  redis-master:
+    ports:
+      - "6379:6379"

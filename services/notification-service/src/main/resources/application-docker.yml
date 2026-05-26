@@ -1,0 +1,8 @@
+spring:
+  data:
+    redis:
+      host: redis-master
+      password: ${REDIS_PASSWORD}
+  mail:
+    host: ${MAIL_HOST:mailhog}
+    port: ${MAIL_PORT:1025}

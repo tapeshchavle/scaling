@@ -1,0 +1,15 @@
+# Docker profile - service names resolve via Docker DNS
+spring:
+  datasource:
+    master:
+      jdbc-url: jdbc:mysql://mysql-master:3306/food_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      username: ${MYSQL_USER}
+      password: ${MYSQL_PASSWORD}
+    slave:
+      jdbc-url: jdbc:mysql://mysql-slave:3306/food_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      username: ${MYSQL_USER}
+      password: ${MYSQL_PASSWORD}
+  data:
+    redis:
+      host: redis-master
+      password: ${REDIS_PASSWORD}

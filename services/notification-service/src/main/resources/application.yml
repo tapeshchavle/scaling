@@ -1,0 +1,56 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: notification-service
+
+  threads:
+    virtual:
+      enabled: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      lettuce:
+        pool:
+          enabled: true
+          max-active: 20
+          max-idle: 10
+          min-idle: 5
+          max-wait: 2000ms
+
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+# Notification channels config
+notification:
+  channels:
+    email:
+      enabled: ${EMAIL_ENABLED:true}
+    sms:
+      enabled: ${SMS_ENABLED:true}
+      provider: ${SMS_PROVIDER:twilio}
+    push:
+      enabled: ${PUSH_ENABLED:true}
+      provider: ${PUSH_PROVIDER:firebase}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized

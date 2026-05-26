@@ -1,0 +1,198 @@
+version: '3.9'
+
+services:
+  # ==================== API GATEWAY ====================
+  nginx:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      food-core:
+        condition: service_healthy
+      notification-service:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # ==================== FOOD CORE SERVICE ====================
+  food-core:
+    build:
+      context: .
+      dockerfile: services/food-core/Dockerfile
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - MYSQL_MASTER_HOST=mysql-master
+      - MYSQL_MASTER_PORT=3306
+      - MYSQL_SLAVE_HOST=mysql-slave
+      - MYSQL_SLAVE_PORT=3306
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-food_db}
+      - MYSQL_USER=${MYSQL_USER:-food_user}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-changeme}
+      - REDIS_HOST=redis-master
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}
+    depends_on:
+      mysql-master:
+        condition: service_healthy
+      redis-master:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # ==================== NOTIFICATION SERVICE ====================
+  notification-service:
+    build:
+      context: .
+      dockerfile: services/notification-service/Dockerfile
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - REDIS_HOST=redis-master
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}
+    depends_on:
+      redis-master:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8082/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # ==================== MySQL MASTER ====================
+  mysql-master:
+    image: mysql:8.0
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-rootpassword}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-food_db}
+      - MYSQL_USER=${MYSQL_USER:-food_user}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-changeme}
+    volumes:
+      - mysql-master-data:/var/lib/mysql
+      - ./infra/mysql/master/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+      - ./infra/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    ports:
+      - "3306:3306"
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # ==================== MySQL SLAVE ====================
+  mysql-slave:
+    image: mysql:8.0
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-rootpassword}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-food_db}
+      - MYSQL_USER=${MYSQL_USER:-food_user}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-changeme}
+    volumes:
+      - mysql-slave-data:/var/lib/mysql
+      - ./infra/mysql/slave/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+    depends_on:
+      mysql-master:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    ports:
+      - "3307:3306"
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # ==================== REDIS MASTER ====================
+  redis-master:
+    image: redis:7-alpine
+    command: redis-server /etc/redis/redis.conf
+    volumes:
+      - redis-master-data:/data
+      - ./infra/redis/redis-master.conf:/etc/redis/redis.conf:ro
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-changeme}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # ==================== REDIS SLAVE ====================
+  redis-slave:
+    image: redis:7-alpine
+    command: redis-server /etc/redis/redis.conf
+    volumes:
+      - redis-slave-data:/data
+      - ./infra/redis/redis-slave.conf:/etc/redis/redis.conf:ro
+    depends_on:
+      redis-master:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-changeme}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "6380:6379"
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # ==================== REDIS SENTINEL ====================
+  redis-sentinel:
+    image: redis:7-alpine
+    command: >
+      sh -c "echo 'sentinel monitor mymaster redis-master 6379 1' > /etc/redis/sentinel.conf &&
+             echo 'sentinel auth-pass mymaster ${REDIS_PASSWORD:-changeme}' >> /etc/redis/sentinel.conf &&
+             echo 'sentinel down-after-milliseconds mymaster 5000' >> /etc/redis/sentinel.conf &&
+             echo 'sentinel failover-timeout mymaster 10000' >> /etc/redis/sentinel.conf &&
+             redis-sentinel /etc/redis/sentinel.conf"
+    depends_on:
+      redis-master:
+        condition: service_healthy
+      redis-slave:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+volumes:
+  mysql-master-data:
+  mysql-slave-data:
+  redis-master-data:
+  redis-slave-data:
+
+networks:
+  app-network:
+    driver: bridge
