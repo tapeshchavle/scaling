@@ -28,7 +28,7 @@ module containerApps 'container-apps.bicep' = {
   params: {
     location: location
     environment: environment
-    acrLoginServer: acr.properties.loginServer
+    acrName: acr.name
   }
 }
 

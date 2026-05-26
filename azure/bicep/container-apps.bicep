@@ -1,7 +1,10 @@
 param location string = resourceGroup().location
 param environment string
-param acrLoginServer string
+param acrName string
 
+resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
+  name: acrName
+}
 // Log Analytics Workspace for Container Apps
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
   name: 'logs-${environment}-${uniqueString(resourceGroup().id)}'
@@ -35,6 +38,16 @@ resource acrPullIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-
   location: location
 }
 
+resource acrPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(resourceGroup().id, acr.id, acrPullIdentity.id, 'AcrPull')
+  scope: acr
+  properties: {
+    principalId: acrPullIdentity.properties.principalId
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
+    principalType: 'ServicePrincipal'
+  }
+}
+
 // Food Core App
 resource foodCore 'Microsoft.App/containerApps@2023-05-01' = {
   name: 'food-core'
@@ -54,7 +67,7 @@ resource foodCore 'Microsoft.App/containerApps@2023-05-01' = {
       }
       registries: [
         {
-          server: acrLoginServer
+          server: acr.properties.loginServer
           identity: acrPullIdentity.id
         }
       ]
@@ -63,7 +76,7 @@ resource foodCore 'Microsoft.App/containerApps@2023-05-01' = {
       containers: [
         {
           name: 'food-core'
-          image: '${acrLoginServer}/food-core:latest'
+          image: '${acr.properties.loginServer}/food-core:latest'
           resources: {
             cpu: 1
             memory: '2.0Gi'
@@ -118,7 +131,7 @@ resource notificationService 'Microsoft.App/containerApps@2023-05-01' = {
       }
       registries: [
         {
-          server: acrLoginServer
+          server: acr.properties.loginServer
           identity: acrPullIdentity.id
         }
       ]
@@ -127,7 +140,7 @@ resource notificationService 'Microsoft.App/containerApps@2023-05-01' = {
       containers: [
         {
           name: 'notification-service'
-          image: '${acrLoginServer}/notification-service:latest'
+          image: '${acr.properties.loginServer}/notification-service:latest'
           resources: {
             cpu: 1
             memory: '2.0Gi'
