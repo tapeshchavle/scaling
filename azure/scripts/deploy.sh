@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # Azure Deployment Script
-RESOURCE_GROUP="scaling-food-rg-sea"
-LOCATION="southeastasia"
+RESOURCE_GROUP="scaling-food-rg-uae"
+LOCATION="uaenorth"
 ENVIRONMENT="staging"
 
 echo "Creating Resource Group: $RESOURCE_GROUP in $LOCATION"

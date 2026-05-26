@@ -16,8 +16,8 @@ on:
 
 env:
   ACR_NAME: scalingfoodacr
-  RESOURCE_GROUP: scaling-food-rg-sea
-  LOCATION: southeastasia
+  RESOURCE_GROUP: scaling-food-rg-uae
+  LOCATION: uaenorth
   ENVIRONMENT_NAME: scaling-food-env
 
 permissions:
